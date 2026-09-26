@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ block_obj.name }} — Floors{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="{% url 'block_list' mode=mode %}">{{ mode|upper }}</a>
+    {% if block_obj.parent %} &rsaquo; <a href="{% url 'block_detail' mode=mode slug=block_obj.parent.slug %}">{{ block_obj.parent.name }}</a>{% endif %}
+    &rsaquo; {{ block_obj.name }}
+</div>
+<h1 class="page-title">{{ block_obj.name }}</h1>
+<p class="page-subtitle">Select a floor</p>
+
+<div class="grid">
+    {% for floor in floors %}
+    <a class="nav-tile filled" href="{% url 'room_list' mode=mode slug=block_obj.slug floor=floor.code %}">{{ floor.label }}</a>
+    {% endfor %}
+</div>
+{% endblock %}

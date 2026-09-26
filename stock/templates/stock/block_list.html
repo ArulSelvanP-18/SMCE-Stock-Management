@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ mode|title }} — Select Block{% endblock %}
+{% block content %}
+<h1 class="page-title">{{ mode|upper }}</h1>
+<p class="page-subtitle">Select a block to continue</p>
+{% if mode == 'view' %}
+<div class="readonly-note">You are in VIEW mode (read-only). Records cannot be added, updated, or deleted here.</div>
+{% else %}
+{% if user.is_admin_role %}
+<div class="modify-transfer-banner">
+    <div>
+        <strong>Need to move stock between rooms?</strong>
+        <span>Use Transfer Data to select records and move them safely to another block, floor or room.</span>
+    </div>
+    <a class="btn" href="{% url 'transfer' %}">TRANSFER TO →</a>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="grid">
+    {% for block_item in blocks %}
+    <a class="nav-tile filled" href="{% url 'block_detail' mode=mode slug=block_item.slug %}">{{ block_item.name }}</a>
+    {% endfor %}
+</div>
+
+<p style="margin-top:20px;"><a href="{% url 'dashboard' %}">&larr; Back to Dashboard</a></p>
+{% endblock %}

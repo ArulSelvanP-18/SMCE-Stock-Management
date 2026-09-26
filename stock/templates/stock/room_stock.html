@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}{{ room.room_no }} Stock — {{ block_obj.name }}{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{% url 'block_list' mode=mode %}">{{ mode|upper }}</a> › {{ block_obj.name }} › {{ room.get_floor_display }} › Room {{ room.room_index }} Stock
+</div>
+<div class="page-heading-row">
+  <div><h1 class="page-title">{{ block_obj.name }}</h1><p class="page-subtitle">{{ room.room_name|default:room.room_no }} ({{ room.room_no }})</p></div>
+  {% if not read_only and user.is_admin_role %}<a class="btn" href="{% url 'transfer' %}">TRANSFER TO →</a>{% endif %}
+</div>
+
+{% if read_only %}<div class="readonly-note">View mode — insert, update, and delete are disabled. Search and export remain available.</div>{% endif %}
+
+<div class="toolbar">
+  <form method="get" class="toolbar-group">
+    {{ search_form.query }}{{ search_form.status }}
+    <button class="btn btn-small" type="submit">SEARCH</button>
+    <a class="btn btn-small btn-secondary" href="{% url 'room_stock' mode=mode slug=block_obj.slug floor=room.floor index=room.room_index %}">SHOW ALL</a>
+  </form>
+  <div class="toolbar-group">
+    <a class="btn btn-small btn-secondary" href="{% url 'stock_export' mode=mode slug=block_obj.slug floor=room.floor index=room.room_index fmt='csv' %}">EXPORT CSV</a>
+    <a class="btn btn-small btn-secondary" href="{% url 'stock_export' mode=mode slug=block_obj.slug floor=room.floor index=room.room_index fmt='excel' %}">EXPORT EXCEL</a>
+  </div>
+</div>
+
+{% if not read_only %}
+<div class="card">
+  <h3 style="color:var(--pink-dark);">Insert New Stock</h3>
+  <form id="new-stock-form" method="post" action="{% url 'stock_insert' mode=mode slug=block_obj.slug floor=room.floor index=room.room_index %}">
+    {% csrf_token %}
+    <div class="insert-grid">
+      <div><label>Item Name</label>{{ new_item_form.item_name }}</div>
+      <div><label>Item Code (Auto Generated)</label>{{ new_item_form.item_code }}</div>
+      <div><label>Item No</label>{{ new_item_form.item_no }}</div>
+      <div><label>Quantity</label>{{ new_item_form.quantity }}</div>
+      <div><label>Status</label>{{ new_item_form.status }}</div>
+      <div><label>Insertion/Deletion Date</label>{{ new_item_form.last_updated }}</div>
+    </div>
+    <button class="btn" type="submit">INSERT DATA</button>
+  </form>
+</div>
+{% endif %}
+
+<datalist id="system-item-list"></datalist>
+<div class="table-scroll" style="margin-top:20px;">
+<table class="data-table">
+<thead><tr>
+  <th>Item Name</th><th>Item Code</th><th>Item No</th><th>Quantity</th><th>Room No</th><th>Status</th><th>Insertion/Deletion Date</th><th>Actions</th>
+</tr></thead>
+<tbody>
+{% for item in items %}
+<tr>
+{% if not read_only %}
+  <td><input class="input cell-input master-name" form="update-form-{{ item.id }}" list="system-item-list" name="item_name" value="{{ item.item_name }}" data-code-target="code-{{ item.id }}" data-stock-id="{{ item.id }}" autocomplete="off"></td>
+  <td><input id="code-{{ item.id }}" class="input cell-input master-code" form="update-form-{{ item.id }}" name="item_code" value="{{ item.item_code }}" readonly></td>
+  <td><input class="input cell-input" form="update-form-{{ item.id }}" name="item_no" value="{{ item.item_no }}"></td>
+  <td><input class="input cell-input" form="update-form-{{ item.id }}" type="number" min="0" name="quantity" value="{{ item.quantity }}"></td>
+  <td>{{ item.room_no }}</td>
+  <td><select class="input cell-input" form="update-form-{{ item.id }}" name="status">
+    <option value="ALIVE" {% if item.status == "ALIVE" %}selected{% endif %}>ALIVE</option>
+    <option value="REPAIR" {% if item.status == "REPAIR" %}selected{% endif %}>REPAIR</option>
+    <option value="DEAD" {% if item.status == "DEAD" %}selected{% endif %}>DEAD</option>
+  </select></td>
+  <td><input class="input cell-input" form="update-form-{{ item.id }}" type="datetime-local" name="last_updated" value="{{ item.last_updated|date:'Y-m-d\\TH:i' }}"></td>
+  <td class="actions-cell">
+    <button class="btn btn-small" form="update-form-{{ item.id }}" type="submit">EDIT / SAVE</button>
+    <button class="btn btn-small btn-danger" form="delete-form-{{ item.id }}" type="submit" onclick="return confirm('Are you sure you want to delete this item?');">DELETE</button>
+  </td>
+{% else %}
+  <td>{{ item.item_name }}</td><td><strong>{{ item.item_code }}</strong></td><td>{{ item.item_no }}</td><td>{{ item.quantity }}</td><td>{{ item.room_no }}</td>
+  <td><span class="badge {% if item.status == 'ALIVE' %}badge-alive{% elif item.status == 'REPAIR' %}badge-repair{% else %}badge-dead{% endif %}">{{ item.status }}</span></td>
+  <td>{{ item.last_updated|date:"d-m-Y H:i" }}</td><td>—</td>
+{% endif %}
+</tr>
+{% empty %}
+<tr><td colspan="8" style="text-align:center;padding:24px;">No stock records found.</td></tr>
+{% endfor %}
+</tbody></table></div>
+{% if not read_only %}
+{% for item in items %}
+<form id="update-form-{{ item.id }}" method="post" action="{% url 'stock_update' mode=mode slug=block_obj.slug floor=room.floor index=room.room_index item_id=item.id %}" style="display:none;">{% csrf_token %}</form>
+<form id="delete-form-{{ item.id }}" method="post" action="{% url 'stock_delete' mode=mode slug=block_obj.slug floor=room.floor index=room.room_index item_id=item.id %}" style="display:none;">{% csrf_token %}</form>
+{% endfor %}
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+  const list=document.getElementById("system-item-list");
+  const endpoint="{% url 'system_items_api' %}";
+  const previewEndpoint="{% url 'item_code_preview_api' %}";
+  const roomId="{{ room.id }}";
+
+  async function loadMaster(q=""){
+    try{
+      const r=await fetch(endpoint+"?q="+encodeURIComponent(q),{headers:{"X-Requested-With":"XMLHttpRequest"}});
+      const data=await r.json();
+      list.innerHTML="";
+      (data.items||[]).forEach(x=>{
+        const o=document.createElement("option");
+        o.value=x.item_name;
+        o.label=x.item_name+" — "+x.item_code;
+        list.appendChild(o);
+      });
+    }catch(e){}
+  }
+
+  async function updateGeneratedCode(inp){
+    const q=inp.value.trim();
+    const code=document.getElementById(inp.dataset.codeTarget);
+    if(!code) return;
+    code.value="";
+    if(!q) return;
+
+    const params=new URLSearchParams({item_name:q,room_id:roomId});
+    if(inp.dataset.stockId) params.set("stock_id",inp.dataset.stockId);
+    try{
+      const r=await fetch(previewEndpoint+"?"+params.toString(),{
+        headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}
+      });
+      const data=await r.json();
+      if(r.ok){
+        code.value=data.item_code||"";
+        code.title="System Control: "+(data.system_control_code||"");
+      }else{
+        code.value="";
+        code.title=data.error||"Item Code is not configured.";
+      }
+    }catch(e){
+      code.value="";
+      code.title="Unable to preview Item Code.";
+    }
+  }
+
+  loadMaster();
+
+  const newName=document.querySelector("#new-stock-form .master-name");
+  if(newName){
+    newName.addEventListener("input",()=>updateGeneratedCode(newName));
+    newName.addEventListener("change",()=>updateGeneratedCode(newName));
+  }
+
+  document.querySelectorAll(".master-name").forEach(inp=>{
+    inp.addEventListener("input",async()=>{
+      const q=inp.value.trim();
+      await updateGeneratedCode(inp);
+      try{
+        const r=await fetch(endpoint+"?q="+encodeURIComponent(q),{
+          headers:{"X-Requested-With":"XMLHttpRequest"}
+        });
+        const data=await r.json();
+        list.innerHTML="";
+        (data.items||[]).forEach(x=>{
+          const o=document.createElement("option");
+          o.value=x.item_name;
+          o.label=x.item_name+" — "+x.item_code;
+          list.appendChild(o);
+        });
+      }catch(e){}
+    });
+    inp.addEventListener("change",()=>updateGeneratedCode(inp));
+  });
+});
+</script>
+{% endblock %}

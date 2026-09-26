@@ -1,0 +1,83 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SMCE Stock Management{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'img/college_logo.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'img/college_logo.png' %}">
+    <meta name="theme-color" content="#6c5cc4">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    {% if user.is_authenticated %}
+    {% url 'dashboard' as url_dashboard %}
+    {% url 'block_list' mode='modify' as url_modify %}
+    {% url 'block_list' mode='view' as url_view %}
+    {% url 'reports' as url_reports %}
+    {% url 'dead_stock' as url_dead_stock %}
+    {% url 'analysis' as url_analysis %}
+    <header class="topbar">
+        <a href="{{ url_dashboard }}" class="brand">
+            <span class="brand-logo">
+                <img src="{% static 'img/college_logo.png' %}" alt="Stella Mary's College of Engineering logo">
+            </span>
+            <span class="brand-text">
+                <span class="brand-title">SMCE STOCK MANAGEMENT</span>
+                <span class="brand-subtitle">Stella Mary&rsquo;s College of Engineering</span>
+            </span>
+        </a>
+        <nav class="topnav">
+            <a href="{% url 'landing' %}">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8" /><path d="M5 10v10h14V10" /></svg>
+                Home
+            </a>
+            <a href="{{ url_dashboard }}" class="{% if request.path == url_dashboard %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8" /><path d="M5 10v10h14V10" /></svg>
+                Dashboard
+            </a>
+            <a href="{{ url_modify }}" class="{% if request.path == url_modify %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 20l4.5-1.2L20 7.3a1.8 1.8 0 0 0 0-2.5l-.8-.8a1.8 1.8 0 0 0-2.5 0L5.2 15.5 4 20Z" /></svg>
+                Modify
+            </a>
+            <a href="{{ url_view }}" class="{% if request.path == url_view %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                View
+            </a>
+            <a href="{{ url_reports }}" class="{% if request.path == url_reports %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 20V10" /><path d="M11 20V4" /><path d="M18 20v-7" /></svg>
+                Reports
+            </a>
+            <a href="{{ url_dead_stock }}" class="{% if request.path == url_dead_stock %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M3 7l2-4h14l2 4" /><path d="M10 11h4" /></svg>
+                Dead Stock
+            </a>
+            <a href="{{ url_analysis }}" class="{% if request.path == url_analysis %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10H12Z" /><path d="M12 2a10 10 0 0 1 10 10h-10Z" opacity="0.5" /></svg>
+                Analysis
+            </a>
+        </nav>
+        <div class="user-box">
+            <span class="user-name">{{ user.full_name|default:user.username }} <span class="user-role">({{ user.role }})</span></span>
+            <a href="{% url 'logout' %}" class="btn btn-small btn-logout">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>
+                Logout
+            </a>
+        </div>
+    </header>
+    {% endif %}
+
+    <main class="page-container">
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

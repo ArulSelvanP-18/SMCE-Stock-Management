@@ -1,0 +1,1091 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Analysis — SMCE Stock Management{% endblock %}
+
+{% block content %}
+
+<h1 class="page-title">ANALYSIS</h1>
+
+<p class="page-subtitle">
+    Choose a block, a floor, a room within it and a status, or just search —
+    the cumulative totals and graphs below always match whatever is currently selected.
+</p>
+
+<form method="get" class="card">
+    <div class="form-row">
+
+        <div>
+            <label>Block Selection</label>
+            {{ form.block }}
+        </div>
+
+        <div>
+            <label>Floor Selection</label>
+            {{ form.floor }}
+        </div>
+
+        <div>
+            <label>Room Selection (Floor-No.)</label>
+            <select name="room" id="id_room_filter" class="input">
+                <option value="">All Blocks — All Rooms</option>
+
+                {% for room in all_rooms %}
+                <option
+                    value="{{ room.id }}"
+                    data-source="{{ room.block.source_table }}"
+                    data-floor="{{ room.floor }}"
+                    {% if room_value == room.id|stringformat:"s" %}selected{% endif %}
+                >
+                    {{ room.block.name }} : {{ room.get_floor_display }}-{{ room.room_index }} ({{ room.room_no }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label>Status</label>
+            {{ form.status }}
+        </div>
+
+        <div style="flex:2; min-width:240px;">
+            <label>Search (Item Name / Code / No.)</label>
+            {{ form.query }}
+        </div>
+
+        <button type="submit" class="btn" style="margin-bottom:14px;">
+            FETCH DATA
+        </button>
+
+        <a
+            class="btn btn-secondary"
+            style="margin-bottom:14px;"
+            href="{% url 'analysis' %}"
+        >
+            RESET
+        </a>
+
+    </div>
+</form>
+
+
+<div class="toolbar">
+    <div class="toolbar-group">
+
+        <a
+            class="btn btn-small btn-secondary"
+            href="{% url 'analysis_export' fmt='csv' %}?{{ request.GET.urlencode }}"
+        >
+            SAVE AS CSV
+        </a>
+
+        <a
+            class="btn btn-small btn-secondary"
+            href="{% url 'analysis_export' fmt='excel' %}?{{ request.GET.urlencode }}"
+        >
+            SAVE AS EXCEL
+        </a>
+
+    </div>
+</div>
+
+
+<!-- Cumulative summary for the current selection -->
+<div class="stats-row">
+
+    <div class="stat-box">
+        <div class="stat-value">
+            {{ summary.total_items|default:0 }}
+        </div>
+        <div class="stat-label">
+            Matching Items
+        </div>
+    </div>
+
+    <div class="stat-box">
+        <div class="stat-value">
+            {{ summary.total_quantity|default:0 }}
+        </div>
+        <div class="stat-label">
+            Cumulative Quantity
+        </div>
+    </div>
+
+    <div class="stat-box">
+        <div class="stat-value">
+            {{ alive_quantity|default:0 }}
+        </div>
+        <div class="stat-label">
+            Alive Quantity
+        </div>
+    </div>
+
+    <div class="stat-box">
+        <div class="stat-value">
+            {{ dead_quantity|default:0 }}
+        </div>
+        <div class="stat-label">
+            Dead Quantity
+        </div>
+    </div>
+
+</div>
+
+
+<!-- Cumulative by Block -->
+{% if block_breakdown %}
+
+<div class="card">
+
+    <h3 style="color:var(--pink-dark);">
+        Cumulative by Block (entire selection, all blocks)
+    </h3>
+
+    <table class="data-table">
+
+        <thead>
+            <tr>
+                <th>Block / Table</th>
+                <th>Items</th>
+                <th>Cumulative Quantity</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for row in block_breakdown %}
+
+            <tr>
+
+                <td>
+                    <a href="?block={{ row.source_table }}&floor={{ floor_value }}&status={{ status_value }}&query={{ query|urlencode }}">
+                        {{ row.label }}
+                    </a>
+                </td>
+
+                <td>
+                    {{ row.total_items }}
+                </td>
+
+                <td>
+                    {{ row.total_quantity|default:0 }}
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endif %}
+
+
+<!-- Cumulative by Room -->
+{% if room_breakdown %}
+
+<div class="card">
+
+    <h3 style="color:var(--pink-dark);">
+        Cumulative by Room (entire block)
+    </h3>
+
+    <table class="data-table">
+
+        <thead>
+            <tr>
+                <th>Block / Department</th>
+                <th>Room</th>
+                <th>Items</th>
+                <th>Cumulative Quantity</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for row in room_breakdown %}
+
+            <tr>
+
+                <td>
+                    {{ row.room__block__name }}
+                </td>
+
+                <td>
+                    <a href="?block={{ block_value }}&floor={{ floor_value }}&room={{ row.room__id }}&status={{ status_value }}&query={{ query|urlencode }}">
+                        {{ row.room__room_no }}
+                    </a>
+                </td>
+
+                <td>
+                    {{ row.total_items }}
+                </td>
+
+                <td>
+                    {{ row.total_quantity|default:0 }}
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endif %}
+
+
+<h3 style="color:var(--pink-dark);">
+    Matching Records
+</h3>
+
+<div style="overflow-x:auto;">
+
+    <table class="data-table">
+
+        <thead>
+
+            <tr>
+                <th>Item Code</th>
+                <th>Item No</th>
+                <th>Item Name</th>
+                <th>Quantity</th>
+                <th>Block / Department</th>
+                <th>Room No</th>
+                <th>Status</th>
+                <th>Insertion/Updation Date</th>
+                <th>Source Table</th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for item in page_obj %}
+
+            <tr>
+
+                <td>{{ item.item_code }}</td>
+
+                <td>{{ item.item_no }}</td>
+
+                <td>{{ item.item_name }}</td>
+
+                <td>{{ item.quantity }}</td>
+
+                <td>{{ item.room.block.name }}</td>
+
+                <td>{{ item.room_no }}</td>
+
+                <td>
+
+                    {% if item.status == "ALIVE" %}
+
+                        <span class="badge badge-alive">
+                            Alive
+                        </span>
+
+                    {% else %}
+
+                        <span class="badge badge-dead">
+                            Dead
+                        </span>
+
+                    {% endif %}
+
+                </td>
+
+                <td>{{ item.last_updated|date:"d-m-Y" }}</td>
+                <td>{{ item.source_table }}</td>
+
+            </tr>
+
+            {% empty %}
+
+            <tr>
+
+                <td
+                    colspan="9"
+                    style="text-align:center; padding:20px;"
+                >
+                    No records match the selected filters.
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+
+<!-- Pagination -->
+{% if page_obj.paginator.num_pages > 1 %}
+
+<div class="toolbar">
+
+    <div class="toolbar-group">
+
+        {% if page_obj.has_previous %}
+
+        <a
+            class="btn btn-small btn-secondary"
+            href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+        >
+            &laquo; PREV
+        </a>
+
+        {% endif %}
+
+
+        <span style="font-size:13px;">
+            Page {{ page_obj.number }}
+            of
+            {{ page_obj.paginator.num_pages }}
+        </span>
+
+
+        {% if page_obj.has_next %}
+
+        <a
+            class="btn btn-small btn-secondary"
+            href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+        >
+            NEXT &raquo;
+        </a>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endif %}
+
+
+<!-- ============================================================
+     DJANGO JSON DATA
+     ============================================================ -->
+
+{{ chart_labels|json_script:"chart-labels-data" }}
+
+{{ chart_values|json_script:"chart-values-data" }}
+
+{{ chart_items|json_script:"chart-items-data" }}
+
+{{ alive_quantity|default:0|json_script:"alive-quantity-data" }}
+
+{{ dead_quantity|default:0|json_script:"dead-quantity-data" }}
+
+
+<!-- ============================================================
+     LOCAL CHART.JS
+     IMPORTANT:
+     chart.umd.min.js must be inside:
+
+     stock/static/js/chart.umd.min.js
+     ============================================================ -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    /* ============================================================
+       ROOM FILTER
+       ============================================================ */
+
+    var blockSelect =
+        document.getElementById("id_block_filter");
+
+    var floorSelect =
+        document.getElementById("id_floor_filter");
+
+    var roomSelect =
+        document.getElementById("id_room_filter");
+
+
+    if (blockSelect && roomSelect) {
+
+        /*
+         * Keep the original room list so that changing the
+         * block/floor does not permanently remove options.
+         */
+
+        var originalRooms =
+            Array.prototype.map.call(
+                roomSelect.options,
+                function (option) {
+
+                    return {
+                        value: option.value,
+                        text: option.text,
+                        source:
+                            option.dataset.source || "",
+                        floor:
+                            option.dataset.floor || ""
+                    };
+
+                }
+            );
+
+
+        function applyFilter() {
+
+            var chosenBlock =
+                blockSelect.value || "ALL";
+
+            var chosenFloor =
+                floorSelect
+                    ? (floorSelect.value || "ALL")
+                    : "ALL";
+
+
+            var currentValue =
+                roomSelect.value;
+
+
+            /*
+             * Clear existing options.
+             */
+
+            roomSelect.innerHTML = "";
+
+
+            /*
+             * Default option.
+             */
+
+            var defaultOption =
+                document.createElement("option");
+
+            defaultOption.value = "";
+
+            defaultOption.textContent =
+                "All Blocks — All Rooms";
+
+            roomSelect.appendChild(
+                defaultOption
+            );
+
+
+            var currentValueAvailable =
+                false;
+
+
+            /*
+             * Rebuild room options based on
+             * block and floor selection.
+             */
+
+            originalRooms.forEach(function (room) {
+
+                if (!room.value) {
+                    return;
+                }
+
+
+                var blockOk =
+                    chosenBlock === "ALL" ||
+                    chosenBlock === "" ||
+                    room.source === chosenBlock;
+
+
+                var floorOk =
+                    chosenFloor === "ALL" ||
+                    chosenFloor === "" ||
+                    room.floor === chosenFloor;
+
+
+                if (blockOk && floorOk) {
+
+                    var option =
+                        document.createElement("option");
+
+                    option.value =
+                        room.value;
+
+                    option.textContent =
+                        room.text;
+
+                    option.dataset.source =
+                        room.source;
+
+                    option.dataset.floor =
+                        room.floor;
+
+
+                    roomSelect.appendChild(
+                        option
+                    );
+
+
+                    if (
+                        room.value ===
+                        currentValue
+                    ) {
+                        currentValueAvailable =
+                            true;
+                    }
+
+                }
+
+            });
+
+
+            /*
+             * Restore selected room when it is
+             * still available.
+             */
+
+            if (currentValueAvailable) {
+
+                roomSelect.value =
+                    currentValue;
+
+            } else {
+
+                roomSelect.value = "";
+
+            }
+
+        }
+
+
+        blockSelect.addEventListener(
+            "change",
+            applyFilter
+        );
+
+
+        if (floorSelect) {
+
+            floorSelect.addEventListener(
+                "change",
+                applyFilter
+            );
+
+        }
+
+
+        applyFilter();
+
+    }
+
+
+    /* ============================================================
+       CHART.JS CHECK
+       ============================================================ */
+
+    var fallbackMsg =
+        document.getElementById(
+            "chart-fallback-msg"
+        );
+
+
+    if (typeof Chart === "undefined") {
+
+        if (fallbackMsg) {
+
+            fallbackMsg.style.display =
+                "block";
+
+            fallbackMsg.innerHTML =
+                "Charts could not load. Please check that " +
+                "<code>static/js/chart.umd.min.js</code> " +
+                "exists and Django static files are configured correctly.";
+
+        }
+
+
+        console.error(
+            "Chart.js was not loaded. " +
+            "Expected: /static/js/chart.umd.min.js"
+        );
+
+        return;
+
+    }
+
+
+    console.log(
+        "Chart.js loaded successfully."
+    );
+
+
+    /* ============================================================
+       SAFE JSON READER
+       ============================================================ */
+
+    function getJSON(
+        elementId,
+        defaultValue
+    ) {
+
+        var element =
+            document.getElementById(
+                elementId
+            );
+
+
+        if (!element) {
+
+            return defaultValue;
+
+        }
+
+
+        try {
+
+            return JSON.parse(
+                element.textContent
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Invalid JSON in " +
+                elementId,
+                error
+            );
+
+            return defaultValue;
+
+        }
+
+    }
+
+
+    /* ============================================================
+       READ DJANGO DATA
+       ============================================================ */
+
+    var labels =
+        getJSON(
+            "chart-labels-data",
+            []
+        );
+
+
+    var values =
+        getJSON(
+            "chart-values-data",
+            []
+        );
+
+
+    var itemCounts =
+        getJSON(
+            "chart-items-data",
+            []
+        );
+
+
+    var aliveQuantity =
+        Number(
+            getJSON(
+                "alive-quantity-data",
+                0
+            )
+        ) || 0;
+
+
+    var deadQuantity =
+        Number(
+            getJSON(
+                "dead-quantity-data",
+                0
+            )
+        ) || 0;
+
+
+    /*
+     * Make sure all chart arrays have usable values.
+     */
+
+    if (!Array.isArray(labels)) {
+        labels = [];
+    }
+
+    if (!Array.isArray(values)) {
+        values = [];
+    }
+
+    if (!Array.isArray(itemCounts)) {
+        itemCounts = [];
+    }
+
+
+    console.log(
+        "Analysis chart labels:",
+        labels
+    );
+
+    console.log(
+        "Analysis chart values:",
+        values
+    );
+
+    console.log(
+        "Analysis item counts:",
+        itemCounts
+    );
+
+
+    /* ============================================================
+       CHART SETTINGS
+       ============================================================ */
+
+    var chartPalette = [
+        "#E75480",
+        "#8B7FD6",
+        "#5AA9E6",
+        "#F2B84B",
+        "#8FD694",
+        "#E88B8B",
+        "#C23B67",
+        "#7FC8C4"
+    ];
+
+
+    var commonOptions = {
+
+        responsive: true,
+
+        maintainAspectRatio: false
+
+    };
+
+
+    /* ============================================================
+       QUANTITY BAR CHART
+       ============================================================ */
+
+    var quantityCanvas =
+        document.getElementById(
+            "quantityChart"
+        );
+
+
+    if (
+        quantityCanvas &&
+        labels.length
+    ) {
+
+        new Chart(
+            quantityCanvas,
+            {
+
+                type: "bar",
+
+                data: {
+
+                    labels: labels,
+
+                    datasets: [
+
+                        {
+
+                            label:
+                                "Cumulative Quantity",
+
+                            data:
+                                values,
+
+                            backgroundColor:
+                                "#E75480",
+
+                            borderColor:
+                                "#C23B67",
+
+                            borderWidth:
+                                1,
+
+                            borderRadius:
+                                6
+
+                        }
+
+                    ]
+
+                },
+
+                options: Object.assign(
+                    {},
+                    commonOptions,
+                    {
+
+                        plugins: {
+
+                            legend: {
+
+                                display: false
+
+                            },
+
+                            title: {
+
+                                display: true,
+
+                                text:
+                                    "Quantity Breakdown",
+
+                                font: {
+
+                                    size: 18,
+
+                                    weight:
+                                        "bold"
+
+                                }
+
+                            }
+
+                        },
+
+                        scales: {
+
+                            y: {
+
+                                beginAtZero:
+                                    true,
+
+                                ticks: {
+
+                                    precision:
+                                        0
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+                )
+
+            }
+        );
+
+    }
+
+
+    /* ============================================================
+       ITEM COUNT PIE CHART
+       ============================================================ */
+
+    var itemsCanvas =
+        document.getElementById(
+            "itemsChart"
+        );
+
+
+    if (
+        itemsCanvas &&
+        labels.length
+    ) {
+
+        new Chart(
+            itemsCanvas,
+            {
+
+                type: "pie",
+
+                data: {
+
+                    labels: labels,
+
+                    datasets: [
+
+                        {
+
+                            label:
+                                "Item Count",
+
+                            data:
+                                itemCounts,
+
+                            backgroundColor:
+                                labels.map(
+                                    function (
+                                        label,
+                                        index
+                                    ) {
+
+                                        return chartPalette[
+                                            index %
+                                            chartPalette.length
+                                        ];
+
+                                    }
+                                ),
+
+                            borderWidth:
+                                2,
+
+                            borderColor:
+                                "#FFFFFF"
+
+                        }
+
+                    ]
+
+                },
+
+                options: Object.assign(
+                    {},
+                    commonOptions,
+                    {
+
+                        plugins: {
+
+                            legend: {
+
+                                position:
+                                    "bottom"
+
+                            },
+
+                            title: {
+
+                                display:
+                                    true,
+
+                                text:
+                                    "Item Count Share",
+
+                                font: {
+
+                                    size:
+                                        18,
+
+                                    weight:
+                                        "bold"
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+                )
+
+            }
+        );
+
+    }
+
+
+    /* ============================================================
+       ALIVE VS DEAD DOUGHNUT CHART
+       ============================================================ */
+
+    var statusCanvas =
+        document.getElementById(
+            "statusChart"
+        );
+
+
+    if (statusCanvas) {
+
+        new Chart(
+            statusCanvas,
+            {
+
+                type: "doughnut",
+
+                data: {
+
+                    labels: [
+                        "ALIVE",
+                        "DEAD"
+                    ],
+
+                    datasets: [
+
+                        {
+
+                            data: [
+                                aliveQuantity,
+                                deadQuantity
+                            ],
+
+                            backgroundColor: [
+                                "#8FD694",
+                                "#E88B8B"
+                            ],
+
+                            borderWidth:
+                                2,
+
+                            borderColor:
+                                "#FFFFFF"
+
+                        }
+
+                    ]
+
+                },
+
+                options: Object.assign(
+                    {},
+                    commonOptions,
+                    {
+
+                        cutout:
+                            "65%",
+
+                        plugins: {
+
+                            legend: {
+
+                                position:
+                                    "bottom"
+
+                            },
+
+                            title: {
+
+                                display:
+                                    true,
+
+                                text:
+                                    "Alive vs Dead Quantity",
+
+                                font: {
+
+                                    size:
+                                        18,
+
+                                    weight:
+                                        "bold"
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+                )
+
+            }
+        );
+
+    }
+
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ block_obj.name }}{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="{% url 'block_list' mode=mode %}">{{ mode|upper }}</a> &rsaquo; {{ block_obj.name }}
+</div>
+<h1 class="page-title">{{ block_obj.name }}</h1>
+<p class="page-subtitle">Select a department</p>
+
+<div class="grid">
+    {% for child in children %}
+    <a class="nav-tile filled" href="{% url 'block_detail' mode=mode slug=child.slug %}">{{ child.name }}</a>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Login — SMCE Stock Management{% endblock %}
+{% block content %}
+<div class="card center-card">
+    <h1 class="page-title">SMCE STOCK MANAGEMENT</h1>
+    <p class="page-subtitle">Please log in to continue</p>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.username }}
+        {{ form.password }}
+        <button type="submit" class="btn btn-block">LOGIN</button>
+    </form>
+    <a href="{% url 'registration' %}" class="btn btn-secondary btn-block">NEW REGISTRATION</a>
+</div>
+{% endblock %}

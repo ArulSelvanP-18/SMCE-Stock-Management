@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Room {{ index }} — {{ block_obj.name }}{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="{% url 'block_list' mode=mode %}">{{ mode|upper }}</a>
+    &rsaquo; <a href="{% url 'block_detail' mode=mode slug=block_obj.slug %}">{{ block_obj.name }}</a>
+    &rsaquo; <a href="{% url 'room_list' mode=mode slug=block_obj.slug floor=floor %}">{{ floor_label }}</a>
+    &rsaquo; Room {{ index }}
+</div>
+
+<div class="card" style="max-width:500px; margin:0 auto;">
+    <h1 class="page-title">Room {{ index }}</h1>
+    {% if read_only %}
+    <div class="readonly-note">View mode — room details cannot be edited here.</div>
+    {% endif %}
+
+    <p><strong>Block Name:</strong> {{ block_obj.name }}</p>
+    <p><strong>Floor:</strong> {{ floor_label }}</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <label>Room Number</label>
+        {{ form.room_no }}
+        <label>Room Name</label>
+        {{ form.room_name }}
+        <label>Room ID (Optional)</label>
+        {{ form.room_id }}
+
+        {% if not read_only %}
+        <label>
+            {{ form.auto_update_db }} Update these changes in the database automatically
+        </label>
+        <div class="form-row" style="margin-top:16px;">
+            <button type="submit" name="open_room" class="btn">OPEN ROOM</button>
+            <button type="submit" name="save_changes" class="btn btn-secondary">SAVE CHANGES</button>
+        </div>
+        {% else %}
+        <div class="form-row" style="margin-top:16px;">
+            <button type="submit" name="open_room" class="btn">OPEN ROOM</button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

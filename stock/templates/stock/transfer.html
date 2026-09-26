@@ -1,0 +1,518 @@
+{% extends "base.html" %}
+{% block title %}Transfer Data — SMCE Stock Management{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{% url 'block_list' mode='modify' %}">MODIFY</a> &rsaquo; Transfer Data</div>
+<div class="transfer-header">
+    <div>
+        <h1 class="page-title" style="margin-bottom:4px;">TRANSFER DATA</h1>
+        <p class="page-subtitle" style="margin-bottom:0;">Move selected inventory records safely from one room to another.</p>
+    </div>
+    <a class="btn btn-secondary" href="{% url 'block_list' mode='modify' %}">← BACK / RETURN</a>
+</div>
+
+<form id="transfer-form" method="post" action="{% url 'transfer_execute' %}">
+{% csrf_token %}
+<input type="hidden" name="source_block_id" id="source_block_id">
+<input type="hidden" name="source_floor" id="source_floor">
+<input type="hidden" name="source_room_id" id="source_room_id">
+<input type="hidden" name="destination_room_id" id="destination_room_id">
+<input type="hidden" name="destination_room_index" id="destination_room_index">
+<input type="hidden" name="destination_block_id" id="destination_block_id">
+<input type="hidden" name="destination_floor" id="destination_floor">
+
+<section class="transfer-card">
+    <div class="transfer-section-heading"><span>1</span><div><h2>SECTION 1 – SOURCE</h2><p>Select the existing location that contains the records to move.</p></div></div>
+    <div class="transfer-grid">
+        <div class="form-group">
+            <label for="source-block">Select Block</label>
+            <select id="source-block" class="input">
+                <option value="">-- Select Block --</option>
+                {% for block in blocks %}
+                <option value="{{ block.id }}">{{ block.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="source-floor">Select Floor</label>
+            <select id="source-floor" class="input" disabled><option value="">-- Select Block First --</option></select>
+        </div>
+    </div>
+
+    <div class="transfer-subheading">Select Source Room <small>(select one room)</small></div>
+    <div id="source-rooms" class="room-check-grid">
+        <div class="transfer-empty">Select a block and floor to load rooms.</div>
+    </div>
+    <div id="source-room-note" class="transfer-note">Only rooms belonging to the selected block and floor are shown.</div>
+</section>
+
+<section class="transfer-card">
+    <div class="transfer-section-heading"><span>2</span><div><h2>SECTION 2 – DATA TO TRANSFER</h2><p>Select the individual records you want to move from the chosen room.</p></div></div>
+    <div class="selection-summary" id="source-summary">No source room selected.</div>
+    <div class="table-scroll">
+        <table class="data-table transfer-table">
+            <thead>
+                <tr>
+                    <th class="select-col"><label class="select-all-label"><input type="checkbox" id="select-all"> Select All</label></th>
+                    <th>Item Name</th><th>Item Code</th><th>Item No</th><th>Available Quantity</th><th>Quantity to Move</th><th>Room No</th><th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="stock-body">
+                <tr><td colspan="8" class="transfer-empty">Select a source room to load its records.</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="selection-summary" id="selected-count">0 records selected</div>
+</section>
+
+<section class="transfer-card">
+    <div class="transfer-section-heading"><span>3</span><div><h2>SECTION 3 – DESTINATION</h2><p>Choose where the selected records should be moved.</p></div></div>
+    <div class="transfer-grid three">
+        <div class="form-group">
+            <label for="destination-block-select">Destination Block</label>
+            <select id="destination-block-select" class="input">
+                <option value="">-- Select Block --</option>
+                {% for block in blocks %}
+                <option value="{{ block.id }}">{{ block.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="destination-floor-select">Destination Floor</label>
+            <select id="destination-floor-select" class="input" disabled><option value="">-- Select Block First --</option></select>
+        </div>
+        <div class="form-group">
+            <label for="destination-room-select">Destination Room</label>
+            <select id="destination-room-select" class="input" disabled><option value="">-- Select Floor First --</option></select>
+        </div>
+    </div>
+
+    <div class="transfer-date-row">
+        <div>
+            <label for="transfer-date">Insertion/Updation Date</label>
+            <input id="transfer-date" name="transfer_date" class="input" type="date" required>
+            <span class="field-help">This date is stored on every transferred record.</span>
+        </div>
+    </div>
+
+    <div class="transfer-action-bar">
+        <div>
+            <strong id="transfer-ready">Complete all selections to enable transfer.</strong>
+            <span class="transfer-help">The operation is atomic: if a validation or database error occurs, no selected record is moved.</span>
+        </div>
+        <button id="transfer-button" type="button" class="btn transfer-main-btn" disabled>TRANSFER</button>
+    </div>
+</section>
+
+<div id="transfer-error" class="alert alert-error transfer-client-error" hidden></div>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const sourceBlock = document.getElementById("source-block");
+    const sourceFloor = document.getElementById("source-floor");
+    const sourceRooms = document.getElementById("source-rooms");
+    const sourceBlockHidden = document.getElementById("source_block_id");
+    const sourceFloorHidden = document.getElementById("source_floor");
+    const sourceRoomId = document.getElementById("source_room_id");
+    const stockBody = document.getElementById("stock-body");
+    const sourceSummary = document.getElementById("source-summary");
+    const selectAll = document.getElementById("select-all");
+    const selectedCount = document.getElementById("selected-count");
+
+    const destBlock = document.getElementById("destination-block-select");
+    const destFloor = document.getElementById("destination-floor-select");
+    const destRoom = document.getElementById("destination-room-select");
+    const destBlockHidden = document.getElementById("destination_block_id");
+    const destFloorHidden = document.getElementById("destination_floor");
+    const destRoomHidden = document.getElementById("destination_room_id");
+    const destRoomIndexHidden = document.getElementById("destination_room_index");
+
+    const transferButton = document.getElementById("transfer-button");
+    const transferReady = document.getElementById("transfer-ready");
+    const transferError = document.getElementById("transfer-error");
+    const dateInput = document.getElementById("transfer-date");
+    const form = document.getElementById("transfer-form");
+
+    const floorsUrl = "{% url 'transfer_floors_api' %}";
+    const roomsUrl = "{% url 'transfer_rooms_api' %}";
+    const stockUrl = "{% url 'transfer_stock_api' %}";
+
+    // Use the browser's local date rather than UTC so India/other timezones do not show yesterday/tomorrow.
+    const now = new Date();
+    const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    dateInput.value = localDate;
+
+    function showError(message) {
+        transferError.textContent = message;
+        transferError.hidden = false;
+    }
+
+    function clearError() {
+        transferError.hidden = true;
+        transferError.textContent = "";
+    }
+
+    async function getJson(url, params) {
+        const response = await fetch(url + "?" + new URLSearchParams(params), {
+            method: "GET",
+            credentials: "same-origin",
+            headers: {"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"}
+        });
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (_) {
+            throw new Error("The server returned an invalid response. Please refresh the page and try again.");
+        }
+        if (!response.ok) {
+            throw new Error(data.error || "Could not load transfer data.");
+        }
+        return data;
+    }
+
+    function resetSourceRoomAndStock(message) {
+        sourceRoomId.value = "";
+        sourceSummary.textContent = "No source room selected.";
+        stockBody.innerHTML = '<tr><td colspan="8" class="transfer-empty">' + message + '</td></tr>';
+        selectAll.checked = false;
+        updateSelectionCount();
+        updateTransferState();
+    }
+
+    function fillFloorSelect(select, floors) {
+        select.innerHTML = '<option value="">-- Select Floor --</option>';
+        (floors || []).forEach(function (floor) {
+            const option = document.createElement("option");
+            option.value = floor.code;
+            option.textContent = floor.label;
+            select.appendChild(option);
+        });
+        select.disabled = !(floors && floors.length);
+    }
+
+    async function loadFloors(blockSelect, floorSelect) {
+        clearError();
+        floorSelect.disabled = true;
+        floorSelect.innerHTML = '<option value="">Loading floors...</option>';
+        if (!blockSelect.value) {
+            floorSelect.innerHTML = '<option value="">-- Select Block First --</option>';
+            return;
+        }
+        try {
+            const data = await getJson(floorsUrl, {block_id: blockSelect.value});
+            fillFloorSelect(floorSelect, data.floors);
+            if (!data.floors || !data.floors.length) {
+                showError("No floors are configured for the selected block.");
+            }
+        } catch (e) {
+            floorSelect.innerHTML = '<option value="">Unable to load floors</option>';
+            floorSelect.disabled = true;
+            showError(e.message);
+        }
+    }
+
+    function roomLabel(room) {
+        return room.room_name ? room.room_no + " — " + room.room_name : room.room_no;
+    }
+
+    async function loadSourceRooms() {
+        clearError();
+        sourceRooms.innerHTML = '<div class="transfer-empty">Loading rooms...</div>';
+        resetSourceRoomAndStock("Select a source room to load its records.");
+        if (!sourceBlock.value || !sourceFloor.value) {
+            sourceRooms.innerHTML = '<div class="transfer-empty">Select a block and floor first.</div>';
+            return;
+        }
+        try {
+            const data = await getJson(roomsUrl, {block_id: sourceBlock.value, floor: sourceFloor.value});
+            if (!data.rooms || !data.rooms.length) {
+                sourceRooms.innerHTML = '<div class="transfer-empty">No rooms found for this block and floor.</div>';
+                return;
+            }
+            sourceRooms.innerHTML = "";
+            data.rooms.forEach(function (room) {
+                const label = document.createElement("label");
+                label.className = "room-check";
+                label.innerHTML =
+                    '<input type="checkbox" class="source-room-check" value="' + (room.id || "") +
+                    '" data-index="' + room.index + '" data-room-no="' + escapeHtml(room.room_no) + '" ' +
+                    (room.has_stock ? "" : "disabled") + '>' +
+                    '<span><b>' + escapeHtml(room.room_no) + '</b><small>' +
+                    escapeHtml(room.room_name || ("Room " + room.index)) +
+                    (room.has_stock ? "" : " • No stock records") +
+                    '</small></span>';
+                sourceRooms.appendChild(label);
+            });
+
+            sourceRooms.querySelectorAll(".source-room-check").forEach(function (cb) {
+                cb.addEventListener("change", function () {
+                    sourceRooms.querySelectorAll(".source-room-check").forEach(function (other) {
+                        if (other !== cb) other.checked = false;
+                    });
+                    if (cb.checked && cb.value) {
+                        sourceRoomId.value = cb.value;
+                        sourceBlockHidden.value = sourceBlock.value;
+                        sourceFloorHidden.value = sourceFloor.value;
+                        sourceSummary.textContent = "Source room: " + cb.dataset.roomNo;
+                        loadStock(cb.value, cb.dataset.roomNo);
+                    } else {
+                        resetSourceRoomAndStock("Select a source room to load its records.");
+                    }
+                    updateTransferState();
+                });
+            });
+        } catch (e) {
+            sourceRooms.innerHTML = '<div class="transfer-empty">Unable to load rooms.</div>';
+            showError(e.message);
+        }
+    }
+
+    async function loadStock(roomId, roomNo) {
+        clearError();
+        stockBody.innerHTML = '<tr><td colspan="8" class="transfer-empty">Loading records...</td></tr>';
+        selectAll.checked = false;
+        updateSelectionCount();
+        try {
+            const data = await getJson(stockUrl, {room_id: roomId});
+            stockBody.innerHTML = "";
+            if (!data.items || !data.items.length) {
+                stockBody.innerHTML = '<tr><td colspan="8" class="transfer-empty">No stock records are available in this room.</td></tr>';
+                updateTransferState();
+                return;
+            }
+            data.items.forEach(function (item) {
+                const tr = document.createElement("tr");
+                tr.innerHTML =
+                    '<td class="select-col"><input type="checkbox" class="stock-check" value="' + item.id + '"></td>' +
+                    '<td>' + escapeHtml(item.item_name) + '</td>' +
+                    '<td>' + escapeHtml(item.item_code) + '</td>' +
+                    '<td>' + escapeHtml(item.item_no) + '</td>' +
+                    '<td>' + escapeHtml(item.quantity) + '</td>' +
+                    '<td><input class="input transfer-qty" type="number" min="1" max="' + item.quantity + '" value="' + item.quantity + '" data-id="' + item.id + '" disabled style="width:110px"></td>' +
+                    '<td>' + escapeHtml(item.room_no) + '</td>' +
+                    '<td><span class="badge ' + (item.status === "ALIVE" ? "badge-alive" : item.status === "REPAIR" ? "badge-repair" : "badge-dead") + '">' + escapeHtml(item.status) + '</span></td>';
+                stockBody.appendChild(tr);
+            });
+            stockBody.querySelectorAll(".stock-check").forEach(function (cb) {
+                cb.addEventListener("change", function () {
+                    const qty = stockBody.querySelector('.transfer-qty[data-id="' + cb.value + '"]');
+                    if (qty) qty.disabled = !cb.checked;
+                    const checks = Array.from(stockBody.querySelectorAll(".stock-check"));
+                    selectAll.checked = checks.length > 0 && checks.every(function (c) { return c.checked; });
+                    selectAll.indeterminate = checks.some(function (c) { return c.checked; }) && !selectAll.checked;
+                    updateSelectionCount();
+                    updateTransferState();
+                });
+            });
+        } catch (e) {
+            stockBody.innerHTML = '<tr><td colspan="8" class="transfer-empty">' + escapeHtml(e.message) + '</td></tr>';
+        }
+        updateSelectionCount();
+        updateTransferState();
+    }
+
+    // FIX: the old transfer page had a JavaScript syntax error in this function.
+    // That stopped ALL transfer-page JavaScript, so floor and room dropdowns could not work.
+    function escapeHtml(value) {
+        const map = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        };
+        return String(value ?? "").replace(/[&<>"']/g, function (ch) { return map[ch]; });
+    }
+
+    selectAll.addEventListener("change", function () {
+        stockBody.querySelectorAll(".stock-check").forEach(function (cb) {
+            cb.checked = selectAll.checked;
+            const qty = stockBody.querySelector('.transfer-qty[data-id="' + cb.value + '"]');
+            if (qty) qty.disabled = !cb.checked;
+        });
+        selectAll.indeterminate = false;
+        updateSelectionCount();
+        updateTransferState();
+    });
+
+    function updateSelectionCount() {
+        const count = stockBody.querySelectorAll(".stock-check:checked").length;
+        selectedCount.textContent = count + " record" + (count === 1 ? "" : "s") + " selected";
+    }
+
+    async function loadDestinationRooms() {
+        destRoom.disabled = true;
+        destRoom.innerHTML = '<option value="">Loading rooms...</option>';
+        destRoomHidden.value = "";
+        destRoomIndexHidden.value = "";
+        if (!destBlock.value || !destFloor.value) {
+            destRoom.innerHTML = '<option value="">-- Select Floor First --</option>';
+            return;
+        }
+        try {
+            const data = await getJson(roomsUrl, {block_id: destBlock.value, floor: destFloor.value});
+            destRoom.innerHTML = '<option value="">-- Select Destination Room --</option>';
+            (data.rooms || []).forEach(function (room) {
+                const option = document.createElement("option");
+                option.value = room.index;
+                option.textContent = roomLabel(room) + (room.has_stock ? " • has records" : "");
+                option.dataset.roomId = room.id || "";
+                option.dataset.roomNo = room.room_no;
+                destRoom.appendChild(option);
+            });
+            destRoom.disabled = !(data.rooms && data.rooms.length);
+            if (!data.rooms || !data.rooms.length) {
+                destRoom.innerHTML = '<option value="">No rooms found</option>';
+            }
+        } catch (e) {
+            destRoom.innerHTML = '<option value="">Unable to load rooms</option>';
+            destRoom.disabled = true;
+            showError(e.message);
+        }
+        updateTransferState();
+    }
+
+    sourceBlock.addEventListener("change", async function () {
+        sourceBlockHidden.value = sourceBlock.value;
+        sourceFloorHidden.value = "";
+        sourceRoomId.value = "";
+        sourceFloor.innerHTML = '<option value="">Loading floors...</option>';
+        sourceFloor.disabled = true;
+        sourceRooms.innerHTML = '<div class="transfer-empty">Select a floor to load rooms.</div>';
+        resetSourceRoomAndStock("Select a source room to load its records.");
+        if (!sourceBlock.value) {
+            sourceFloor.innerHTML = '<option value="">-- Select Block First --</option>';
+            return;
+        }
+        await loadFloors(sourceBlock, sourceFloor);
+        updateTransferState();
+    });
+
+    sourceFloor.addEventListener("change", async function () {
+        sourceFloorHidden.value = sourceFloor.value;
+        sourceRoomId.value = "";
+        resetSourceRoomAndStock("Select a source room to load its records.");
+        if (!sourceFloor.value) {
+            sourceRooms.innerHTML = '<div class="transfer-empty">Select a floor to load rooms.</div>';
+            return;
+        }
+        await loadSourceRooms();
+    });
+
+    destBlock.addEventListener("change", async function () {
+        destBlockHidden.value = destBlock.value;
+        destFloorHidden.value = "";
+        destRoomHidden.value = "";
+        destRoomIndexHidden.value = "";
+        destFloor.innerHTML = '<option value="">Loading floors...</option>';
+        destFloor.disabled = true;
+        destRoom.innerHTML = '<option value="">-- Select Floor First --</option>';
+        destRoom.disabled = true;
+        if (!destBlock.value) {
+            destFloor.innerHTML = '<option value="">-- Select Block First --</option>';
+            updateTransferState();
+            return;
+        }
+        await loadFloors(destBlock, destFloor);
+        updateTransferState();
+    });
+
+    destFloor.addEventListener("change", async function () {
+        destFloorHidden.value = destFloor.value;
+        destRoomHidden.value = "";
+        destRoomIndexHidden.value = "";
+        await loadDestinationRooms();
+        updateTransferState();
+    });
+
+    destRoom.addEventListener("change", function () {
+        const option = destRoom.options[destRoom.selectedIndex];
+        destRoomIndexHidden.value = destRoom.value;
+        destRoomHidden.value = option ? (option.dataset.roomId || "") : "";
+        updateTransferState();
+    });
+
+    function selectedItemIds() {
+        return Array.from(stockBody.querySelectorAll(".stock-check:checked")).map(function (cb) { return cb.value; });
+    }
+
+    function updateTransferState() {
+        const valid = Boolean(
+            sourceBlock.value &&
+            sourceFloor.value &&
+            sourceRoomId.value &&
+            selectedItemIds().length &&
+            destBlock.value &&
+            destFloor.value &&
+            destRoom.value &&
+            dateInput.value
+        );
+        transferButton.disabled = !valid;
+        transferReady.textContent = valid
+            ? selectedItemIds().length + " record(s) ready to transfer."
+            : "Complete all selections to enable transfer.";
+    }
+
+    transferButton.addEventListener("click", function () {
+        clearError();
+        const selected = selectedItemIds();
+        const sourceRoom = sourceRooms.querySelector(".source-room-check:checked");
+        const destOption = destRoom.options[destRoom.selectedIndex];
+
+        if (!sourceBlock.value || !sourceFloor.value || !sourceRoom || !sourceRoom.value) {
+            showError("Please select Source Block, Source Floor and Source Room.");
+            return;
+        }
+        if (!selected.length) {
+            showError("Please select at least one stock record.");
+            return;
+        }
+        if (!destBlock.value || !destFloor.value || !destRoom.value) {
+            showError("Please select Destination Block, Destination Floor and Destination Room.");
+            return;
+        }
+        if (!dateInput.value) {
+            showError("Please select the Insertion/Updation Date.");
+            return;
+        }
+        if (sourceRoom.value && destOption && destOption.dataset.roomId && sourceRoom.value === destOption.dataset.roomId) {
+            showError("Source and destination rooms must be different.");
+            return;
+        }
+
+        for (const id of selected) {
+            const q = stockBody.querySelector('.transfer-qty[data-id="' + id + '"]');
+            if (!q || !q.value || Number(q.value) < 1 || Number(q.value) > Number(q.max)) {
+                showError("Enter a transfer quantity between 1 and the available quantity for every selected item.");
+                return;
+            }
+        }
+        const sourceName = sourceRoom.dataset.roomNo || "source room";
+        const destName = destOption ? (destOption.dataset.roomNo || destOption.textContent) : "destination room";
+        if (!window.confirm("Are you sure you want to transfer the selected " + selected.length + " record(s) from " + sourceName + " to " + destName + "?")) {
+            return;
+        }
+
+        transferButton.disabled = true;
+        transferButton.textContent = "TRANSFERRING...";
+        selected.forEach(function (id) {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "item_ids";
+            input.value = id;
+            form.appendChild(input);
+            const q = stockBody.querySelector('.transfer-qty[data-id="' + id + '"]');
+            const qInput = document.createElement("input");
+            qInput.type = "hidden";
+            qInput.name = "qty_" + id;
+            qInput.value = q.value;
+            form.appendChild(qInput);
+        });
+        form.submit();
+    });
+
+    updateSelectionCount();
+    updateTransferState();
+});
+</script>
+{% endblock %}

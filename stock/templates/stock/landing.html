@@ -1,0 +1,94 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMCE Stock Management System</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body class="landing-body">
+<header class="landing-nav">
+    <a class="landing-brand" href="{% url 'landing' %}">
+        <img src="{% static 'img/college_logo.png' %}" alt="Stella Mary's College of Engineering">
+        <span>
+            <strong>STELLA MARY'S<br>COLLEGE OF ENGINEERING</strong>
+            <small>Nagercoil</small>
+        </span>
+    </a>
+    <nav>
+        <a class="landing-nav-link active" href="#home">⌂&nbsp; Home</a>
+        <a class="landing-nav-link" href="#about">ⓘ&nbsp; About</a>
+        <a class="landing-nav-link" href="#features">▦&nbsp; Features</a>
+        <a class="landing-nav-link" href="{% url 'login' %}">♙&nbsp; Login</a>
+        <a class="landing-nav-link" href="{% url 'registration' %}">✎&nbsp; Register</a>
+    </nav>
+    <div class="landing-motto">Manage Today...<br><em>Build a Better Tomorrow...</em></div>
+</header>
+
+<main>
+<section class="landing-hero" id="home">
+    <div class="hero-copy">
+        <span class="hero-pill">◈ &nbsp; SMCE</span>
+        <h1>STOCK MANAGEMENT</h1>
+        <div class="hero-system">S Y S T E M</div>
+        <p>A smart and simple way to manage college inventory<br>with efficiency, accuracy and transparency.</p>
+        <div class="hero-benefits">
+            <span>◈ <b>Secure</b><small>Access</small></span>
+            <span>⚡ <b>Real-time</b><small>Updates</small></span>
+            <span>▥ <b>Easy</b><small>Tracking</small></span>
+            <span>⚙ <b>Better</b><small>Management</small></span>
+        </div>
+        <div class="hero-actions">
+            <a class="landing-btn landing-btn-primary" href="{% url 'login' %}">♙ &nbsp; Login &nbsp; →</a>
+            <a class="landing-btn landing-btn-light" href="{% url 'registration' %}">✎ &nbsp; New Registration &nbsp; →</a>
+        </div>
+    </div>
+    <div class="hero-visual">
+        <img src="{% static 'img/front_hero.png' %}" alt="SMCE stock management illustration">
+    </div>
+</section>
+
+<section class="landing-info" id="about">
+    <div class="about-card">
+        <div class="section-icon">💡</div>
+        <h2>About The Project</h2>
+        <p><strong>SMCE Stock Management System</strong> is a web application designed to manage the college's inventory efficiently. It allows authorized users to add, view, modify and track items across the college's blocks, floors and rooms.</p>
+        <p>The system maintains stock status, dead-stock records, searchable reports, data exports and room-wise inventory information while keeping the existing Block → Floor → Room structure.</p>
+    </div>
+
+    <div class="features-card" id="features">
+        <h2>★ &nbsp; Key Features</h2>
+        <div class="feature-grid">
+            <div class="landing-feature"><b>🏢</b><span>Manage Blocks<br>&amp; Rooms</span></div>
+            <div class="landing-feature"><b>📦</b><span>Track Inventory<br>Items</span></div>
+            <div class="landing-feature"><b>🗑</b><span>Dead Stock<br>Management</span></div>
+            <div class="landing-feature"><b>⌕</b><span>Filter &amp; Search<br>Options</span></div>
+            <div class="landing-feature"><b>▤</b><span>View Only<br>Reports</span></div>
+            <div class="landing-feature"><b>⇩</b><span>Excel / CSV<br>Export</span></div>
+        </div>
+    </div>
+
+    <aside class="landing-quote">
+        <p>“Efficient Stock<br>Management<br>for a Smarter<br>Campus”</p>
+        <div class="quote-line"></div>
+        <div class="campus-mark">⌂</div>
+    </aside>
+</section>
+
+<section class="landing-developer">
+    <div class="developer-label">〈/〉 &nbsp; <strong>Developed By</strong></div>
+    <div class="developer-card">
+        <div class="developer-avatar">♙</div>
+        <div>
+            <strong>Arul Selvan P</strong>
+            <span>II Year AI&amp;DS</span>
+            <span>Stella Mary's College of Engineering, Nagercoil</span>
+        </div>
+    </div>
+    <div class="developer-help">🤝 &nbsp; With help of<br><strong>SHIRLY JEVA MALAR</strong></div>
+    <div class="developer-thanks">Thank You!<br><small>♡</small></div>
+</section>
+</main>
+</body>
+</html>
